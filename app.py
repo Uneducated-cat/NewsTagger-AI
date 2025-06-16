@@ -5,12 +5,12 @@ import pickle
 import json
 import plotly.graph_objects as go
 import numpy as np
-from scipy.sparse import issparse # Import to check for sparse matrix
+from scipy.sparse import issparse
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="NewsTagger",
-    page_icon="🏷️",
+    page_title="NewsTagger AI",
+    page_icon="📰🏷️",
     layout="centered",
     initial_sidebar_state="expanded"
 )
@@ -84,7 +84,7 @@ st.markdown("""
     }
     .stButton > button:active {
         transform: translateY(1px);
-        box_shadow: 0 2px 4px rgba(0,0,0,0.3);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
     }
     
     /* Action Buttons (General Styling for st.button containers like Predict/Clear) */
@@ -387,6 +387,23 @@ model_info = {
             Where $P(Document|Class)$ is simplified by the independence assumption to be the product of probabilities of each word appearing in that class:
             $$ P(Document|Class) = \\prod_{i=1}^{n} P(Word_i|Class) $$
             It's particularly effective for text classification due to its simplicity, speed, and good performance even with small datasets. It often uses **Bag of Words** model for document representation.
+
+            **Strengths**:
+            * **Simple and Fast**: Easy to implement and computationally efficient, especially for large datasets.
+            * **Good for Text**: Performs surprisingly well in text classification tasks with relatively small training data.
+            * **Handles High Dimensions**: Effective with high-dimensional feature spaces (like TF-IDF vectors).
+            * **Scalable**: Can handle very large feature sets.
+
+            **Weaknesses**:
+            * **"Naive" Assumption**: The conditional independence assumption rarely holds true in real-world data, which can limit its accuracy for complex relationships.
+            * **Zero Frequency Problem**: If a word in the test data was not present in the training data, its probability will be zero, leading to zero posterior probability for the entire class (often handled by Laplace smoothing).
+            * **Sensitivity to Data Distribution**: Performance can degrade if data distributions change significantly.
+
+            **Typical Use Cases in NLP**:
+            * Spam detection
+            * Sentiment analysis
+            * Document categorization
+            * Language identification
         """
     },
     'SVM': {
@@ -397,6 +414,24 @@ model_info = {
             **How it Works**: The goal is to maximize the **margin** between the hyperplane and the closest data points from each class, known as **support vectors**. A larger margin generally leads to lower generalization error. For non-linearly separable data, SVMs use the **kernel trick**, which implicitly maps the inputs into high-dimensional feature spaces where a linear separation is possible, without explicitly computing the coordinates in that space. Common kernels include Linear, Polynomial, and Radial Basis Function (RBF).
             $$ \\min_{w, b, \\xi} \\frac{1}{2} ||w||^2 + C \\sum_{i=1}^{n} \\xi_i \\text{ subject to } y_i(w \\cdot x_i - b) \\ge 1 - \\xi_i \\text{ and } \\xi_i \\ge 0 $$
             Here, $w$ is the normal vector to the hyperplane, $b$ is the offset, $C$ is a regularization parameter, and $\\xi_i$ are slack variables for misclassification.
+
+            **Strengths**:
+            * **Effective in High Dimensional Spaces**: Particularly well-suited for text classification where the number of features (words) can be very large.
+            * **Effective with Clear Margin of Separation**: Works well when there's a clear distinction between classes.
+            * **Memory Efficient**: Uses a subset of training points (support vectors) in the decision function.
+            * **Versatile Kernels**: Can adapt to various data patterns using different kernel functions.
+
+            **Weaknesses**:
+            * **Poor Performance with Large Datasets**: Can be computationally intensive and slow to train on very large datasets.
+            * **Sensitivity to Outliers**: Can be sensitive to noise and outliers as they can heavily influence the hyperplane.
+            * **Choice of Kernel/Parameters**: Performance is highly dependent on the right choice of kernel function and its parameters ($C$, gamma).
+            * **Lack of Probabilities**: By default, SVMs don't output probabilities directly (they can be calibrated, but it adds complexity).
+
+            **Typical Use Cases in NLP**:
+            * Text and hypertext categorization
+            * Spam detection
+            * Handwriting recognition
+            * Gene expression classification
         """
     },
     'Random Forest': {
@@ -409,6 +444,24 @@ model_info = {
             2.  **Feature Randomness**: When splitting a node during tree construction, only a random subset of features is considered, preventing individual features from dominating the decision-making.
             3.  **Voting/Averaging**: For classification, the final prediction is determined by majority voting among the trees. For regression, it's the average of their predictions.
             The combination of these randomizations (data and features) reduces overfitting and improves the model's robustness and accuracy.
+
+            **Strengths**:
+            * **Reduces Overfitting**: By averaging multiple trees, it effectively reduces the risk of overfitting common in individual decision trees.
+            * **High Accuracy**: Often performs very well and provides high accuracy compared to single decision trees.
+            * **Handles Non-linear Relationships**: Can model complex, non-linear relationships.
+            * **Implicit Feature Selection**: Can estimate feature importance, showing which words are most impactful.
+            * **Robust to Outliers/Noise**: Less sensitive to outliers due to the ensemble nature.
+
+            **Weaknesses**:
+            * **Interpretability**: Less interpretable than a single decision tree; understanding the contribution of individual trees is hard.
+            * **Computational Cost**: Can be computationally more expensive and slower to train than simpler models like Naive Bayes, especially with many trees.
+            * **Memory Usage**: Requires more memory as it stores multiple trees.
+
+            **Typical Use Cases in NLP**:
+            * Sentiment analysis
+            * Spam detection
+            * Authorship attribution
+            * Text categorization where complex feature interactions are expected.
         """
     },
     'Logistic Regression': {
@@ -419,6 +472,23 @@ model_info = {
             **How it Works**: It applies a **sigmoid (logistic) function** to the output of a linear equation, squashing the output into a probability between 0 and 1.
             $$ P(Y=1|X) = \\frac{1}{1 + e^{-( \\beta_0 + \\beta_1 X_1 + ... + \\beta_n X_n )}} $$
             The parameters ($\\beta$) are learned by maximizing the likelihood function, typically using gradient descent. For text classification, it handles high-dimensional sparse data well and offers good interpretability through the learned coefficients.
+
+            **Strengths**:
+            * **Simple and Interpretable**: The coefficients can be interpreted as the strength and direction of association between a feature (word) and the log-odds of the outcome class.
+            * **Efficient**: Fast to train and predict, especially on large datasets.
+            * **Good for High-Dimensional Sparse Data**: Performs well with text data represented by TF-IDF, which is typically sparse.
+            * **Provides Probabilities**: Outputs probabilities directly, which can be useful for ranking or thresholding decisions.
+
+            **Weaknesses**:
+            * **Assumes Linearity**: Assumes a linear relationship between the independent variables and the log-odds of the dependent variable.
+            * **Not Suitable for Complex Relationships**: May not perform as well as more complex models for highly non-linear or intricate data patterns.
+            * **Feature Engineering Dependent**: Performance heavily relies on good feature engineering.
+
+            **Typical Use Cases in NLP**:
+            * Spam filtering
+            * Sentiment analysis (binary classification)
+            * Document classification
+            * Predicting click-through rates
         """
     }
 }
@@ -596,7 +666,7 @@ if app_mode == "Classifier":
                                 "feat_chart": feat_chart, 
                                 "model": model,
                                 "icon": model_info[model_name]['icon'],
-                                "desc": model_info[model_name]['desc']
+                                "desc": model_info[model_name]['desc'] # This will now contain the enriched description
                             })
                         except Exception as e:
                             st.error(f"Error with {model_name} model: {str(e)}", icon="⚠️")
@@ -673,7 +743,7 @@ if app_mode == "Classifier":
                 
                 # About This Model - using expander
                 with st.expander(f"About the {result['name']} Model", expanded=False):
-                    st.info(result['desc'], icon="💡")
+                    st.info(result['desc'], icon="💡") # This now uses the enriched description
 
 elif app_mode == "About the Project":
     st.markdown('<h1 style="text-align: center;">About This Project</h1>', unsafe_allow_html=True)
@@ -697,7 +767,8 @@ elif app_mode == "About the Project":
     for model_name, info in model_info.items():
         st.markdown(f"### {model_name}")
         st.metric("Accuracy", f"{accuracies.get(model_name, 0):.2%}")
-        st.markdown(info['desc'], unsafe_allow_html=True)
+        # The 'desc' now includes the detailed strengths, weaknesses, and use cases
+        st.markdown(info['desc'], unsafe_allow_html=True) 
         st.markdown("---") # Separator
             
     st.markdown("""
