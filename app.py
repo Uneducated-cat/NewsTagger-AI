@@ -5,10 +5,11 @@ import pickle
 import json
 import plotly.graph_objects as go
 import numpy as np
+from scipy.sparse import issparse # Import to check for sparse matrix
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="",
+    page_title="NewsTagger AI",
     page_icon="📰🏷️",
     layout="centered",
     initial_sidebar_state="expanded"
@@ -43,7 +44,7 @@ st.markdown("""
     h1, h2, h3 { color: #ffffff; }
 
     /* Sidebar */
-    .css-1d391kg {
+    .css-1d391kg { /* Target for Streamlit sidebar */
         background-color: #1E1E1E; /* Surface Color */
         border-right: 1px solid #303030;
     }
@@ -62,8 +63,8 @@ st.markdown("""
         box-shadow: 0 0 5px rgba(100, 181, 246, 0.5);
     }
     
-    /* Buttons with Ripple Effect */
-    .stButton>button {
+    /* Buttons with Ripple Effect (General Streamlit Buttons) */
+    .stButton > button {
         position: relative;
         overflow: hidden;
         background-color: #64B5F6;
@@ -77,26 +78,39 @@ st.markdown("""
         box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         transition: box-shadow 0.3s ease, transform 0.1s ease;
     }
-    .stButton>button:hover {
+    .stButton > button:hover {
         box-shadow: 0 6px 12px rgba(0,0,0,0.4);
     }
-    .stButton>button:active {
+    .stButton > button:active {
         transform: translateY(1px);
         box-shadow: 0 2px 4px rgba(0,0,0,0.3);
     }
     
-    /* Action Buttons */
-    .action-button {
-        width: 100% !important;
-        margin-top: 10px !important;
-        transition: all 0.3s ease !important;
+    /* Action Buttons (General Styling for st.button containers like Predict/Clear) */
+    div.stButton {
+        width: 100%; /* Ensure general buttons fill container */
+        margin-top: 10px; /* Add some spacing */
+        transition: all 0.3s ease;
     }
-    .action-button:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 6px 12px rgba(100, 181, 246, 0.4) !important;
+    div.stButton > button { /* Specific styling for the button element inside stButton div */
+        width: 100%; /* Make the button fill its container */
     }
-    
-    /* Custom Model Selection Cards */
+    div.stButton:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(100, 181, 246, 0.4);
+    }
+
+
+    /* CUSTOM MODEL SELECTION CARDS - Styled directly, with JS for clicks */
+
+    .model-card-wrapper {
+        height: 180px; /* Fixed height for all cards */
+        /* margin-bottom handled by the parent stButton div */
+        position: relative; /* Needed for z-index context with .model-card */
+        z-index: 1; /* Ensure card is above hidden button */
+        cursor: pointer; /* Indicate it's clickable */
+    }
+
     .model-card {
         background-color: #212121;
         padding: 1rem;
@@ -104,8 +118,14 @@ st.markdown("""
         border: 2px solid #424242;
         text-align: center;
         transition: all 0.2s ease-in-out;
-        cursor: pointer;
         box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        height: 100%; /* Make sure the card itself fills the wrapper */
+        display: flex;
+        flex-direction: column;
+        justify-content: center; /* Center content vertically */
+        align-items: center; /* Center content horizontally */
+        position: relative; /* For checkmark icon */
+        user-select: none; /* Prevent text selection on click */
     }
     .model-card:hover {
         border-color: #64B5F6;
@@ -120,32 +140,60 @@ st.markdown("""
     .model-card .material-icons {
         font-size: 2.5rem;
         margin-bottom: 0.5rem;
+        color: #BBDEFB; /* Light blue icon color */
     }
     .model-card h3 {
         font-size: 1rem;
         font-weight: 500;
         margin-bottom: 0.25rem;
+        color: #ffffff;
     }
     .model-card p {
         font-size: 0.8rem;
         color: #9e9e9e;
     }
-    
-    /* Make entire card clickable */
-    .card-button {
+
+    /* Checkmark icon for selected cards */
+    .model-card.selected::after {
+        content: 'check_circle'; /* Material icon name */
+        font-family: 'Material Icons';
+        font-size: 2rem;
+        color: #4CAF50; /* Green checkmark */
         position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        opacity: 0;
-        cursor: pointer;
-        z-index: 1;
-    }
-    .model-card-container {
-        position: relative;
+        top: 10px;
+        right: 10px;
+        line-height: 1;
     }
     
+    /* CSS to ONLY hide the SPECIFIC hidden buttons for model selection */
+    /* This targets the Streamlit div.stButton that contains our hidden button */
+    div.stButton:has(button[id^="hidden_button_"]) {
+        position: relative !important; /* Make parent relative for absolute button positioning */
+        height: 180px !important; /* Give it the same height as the card for proper spacing */
+        margin-bottom: 15px !important; /* Restore normal margin for column flow */
+        overflow: hidden !important; /* Hide anything outside this div */
+        /* No z-index here, let the actual button or the overlaying card handle it */
+    }
+
+    /* Target the button itself by its Streamlit-generated ID (from 'key') */
+    button[id^="hidden_button_"] {
+        position: absolute !important; /* Position it absolutely within its parent div.stButton */
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important; /* Make it fill its parent div.stButton */
+        height: 100% !important; /* Make it fill its parent div.stButton */
+        overflow: hidden !important;
+        opacity: 0 !important; /* Make it completely invisible */
+        margin: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+        z-index: 0; /* Place it *below* the custom card */
+        background-color: transparent !important; /* Ensure no background */
+        color: transparent !important; /* Hide any text */
+        pointer-events: all !important; /* CRUCIAL: Allow programmatic clicks */
+    }
+
+
     /* Prediction Result Cards */
     .prediction-card {
         background: #1E1E1E;
@@ -200,6 +248,10 @@ st.markdown("""
         border-radius: 8px;
         text-align: center;
         box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        height: 100%; /* Ensure equal height for metric cards */
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
     }
     .metric-value {
         font-size: 24px;
@@ -210,29 +262,6 @@ st.markdown("""
     .metric-label {
         font-size: 14px;
         color: #9e9e9e;
-    }
-    
-    /* Top Categories Table */
-    .top-category-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 10px;
-    }
-    .top-category-table th {
-        background-color: #2a2a2a;
-        padding: 10px;
-        text-align: left;
-        font-weight: 600;
-    }
-    .top-category-table td {
-        padding: 10px;
-        border-bottom: 1px solid #424242;
-    }
-    .top-category-table tr:last-child td {
-        border-bottom: none;
-    }
-    .top-category-table tr:hover {
-        background-color: rgba(100, 181, 246, 0.1);
     }
     </style>
 """, unsafe_allow_html=True)
@@ -248,6 +277,7 @@ def preprocess_text(text):
 @st.cache_resource
 def load_resources():
     try:
+        # These paths assume the pickle and JSON files are in the same directory as your app.py
         with open('vectorizer.pkl', 'rb') as f: vectorizer = pickle.load(f)
         with open('label_encoder.pkl', 'rb') as f: label_encoder = pickle.load(f)
         with open('model_accuracies.json', 'r') as f: accuracies = json.load(f)
@@ -279,17 +309,36 @@ def create_confidence_chart(probabilities, labels):
         xaxis_title="Probability", yaxis_title=None,
         plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
         font_color='#e0e0e0', xaxis=dict(gridcolor='#424242', range=[0, 1]),
-        yaxis=dict(showgrid=False), bargap=0.2, height=300
+        yaxis=dict(showgrid=False), bargap=0.2, height=450 # Increased height
     )
     return fig
 
 def create_feature_importance_chart(importances, feature_names, top_n=15):
+    # Ensure importances is 1D and feature_names match
+    importances = np.asarray(importances)
+    if importances.ndim > 1:
+        importances = importances.flatten()
+    
+    # Handle cases where feature_names might not exactly match importances length
+    if len(importances) != len(feature_names):
+        st.warning(f"Feature importance length ({len(importances)}) does not match feature names length ({len(feature_names)}). This might affect the chart.", icon="⚠️")
+        if len(importances) > len(feature_names):
+            importances = importances[:len(feature_names)]
+        elif len(feature_names) > len(importances):
+            feature_names = feature_names[:len(importances)]
+        
+        if len(importances) == 0: # If after adjustments, there are no features
+             return None
+
     # Create DataFrame for feature importances
     importance_df = pd.DataFrame({
         'Feature': feature_names,
-        'Importance': importances
+        'Importance': np.abs(importances) # Use absolute importance for ranking
     }).sort_values('Importance', ascending=False).head(top_n)
     
+    if importance_df.empty:
+        return None
+
     # Create horizontal bar chart
     fig = go.Figure(go.Bar(
         x=importance_df['Importance'],
@@ -299,8 +348,8 @@ def create_feature_importance_chart(importances, feature_names, top_n=15):
     ))
     fig.update_layout(
         title='Top Influential Words',
-        height=400,
-        xaxis_title="Importance Score",
+        height=500, # Increased height
+        xaxis_title="Importance Score (Absolute)",
         yaxis_title=None,
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor='rgba(0,0,0,0)',
@@ -312,10 +361,10 @@ def create_feature_importance_chart(importances, feature_names, top_n=15):
 # --- LOAD RESOURCES & INITIALIZE STATE ---
 vectorizer, label_encoder, accuracies = load_resources()
 model_info = {
-    'Naive Bayes': {'icon': 'calculate', 'desc': "Probabilistic classifier based on Bayes' theorem. Fast and effective for text classification."},
-    'SVM': {'icon': 'hub', 'desc': "Finds optimal hyperplane to separate classes. Excellent for high-dimensional data."},
-    'Random Forest': {'icon': 'forest', 'desc': "Ensemble of decision trees. Robust and handles complex relationships well."},
-    'Logistic Regression': {'icon': 'functions', 'desc': "Linear model for classification. Provides probabilities and works well with high-dimensional data."}
+    'Naive Bayes': {'icon': 'calculate', 'desc': "A probabilistic classifier based on Bayes' theorem, assuming independence between features. It's often fast and performs well with text data."},
+    'SVM': {'icon': 'hub', 'desc': "Support Vector Machines find the optimal hyperplane that best separates different classes in the feature space. They are effective in high-dimensional spaces."},
+    'Random Forest': {'icon': 'forest', 'desc': "An ensemble learning method that constructs a multitude of decision trees during training and outputs the class that is the mode of the classes (classification) or mean prediction (regression) of the individual trees. It's robust and handles complex relationships."},
+    'Logistic Regression': {'icon': 'functions', 'desc': "Despite its name, Logistic Regression is a linear model for classification rather than regression. It models the probability of a binary outcome and is extended for multi-class classification. It's simple, interpretable, and performs well with high-dimensional data."}
 }
 
 # Initialize session state for each model's selection status
@@ -328,15 +377,20 @@ if 'prediction_made' not in st.session_state:
 if 'results' not in st.session_state:
     st.session_state.results = []
 
+# --- Callback function to toggle selection state (triggered by JavaScript) ---
+def toggle_model_selection_callback(model_name):
+    st.session_state[f"{model_name}_selected"] = not st.session_state[f"{model_name}_selected"]
+    # Streamlit will automatically rerun the script when session_state changes via a button click
+
 # --- SIDEBAR NAVIGATION ---
 with st.sidebar:
-    st.title("📰 NewsTagger")
+    st.title("📰 NewsTagger AI")
     st.markdown("---")
     app_mode = st.radio("Navigation", ("Classifier", "About the Project"), label_visibility="hidden")
 
 # --- MAIN APP UI ---
 if app_mode == "Classifier":
-    st.markdown('<h1 style="text-align: center;">NewsTagger : News Article Classifier</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 style="text-align: center;">NewsTagger AI: News Article Classifier</h1>', unsafe_allow_html=True)
     st.markdown('<p style="text-align: center; color: #9e9e9e;">Select models, paste an article, and classify it in real-time.</p>', unsafe_allow_html=True)
     st.markdown("---")
 
@@ -345,26 +399,45 @@ if app_mode == "Classifier":
     cols = st.columns(len(model_info))
     for i, (name, info) in enumerate(model_info.items()):
         with cols[i]:
-            selected_class = "selected" if st.session_state[f"{name}_selected"] else ""
+            is_selected = st.session_state[f"{name}_selected"]
+            selected_class = "selected" if is_selected else ""
             
-            # Create a container for the card with absolute positioning
-            st.markdown('<div class="model-card-container">', unsafe_allow_html=True)
-            
-            # Create an invisible button that covers the entire card
-            if st.button(f"Select {name}", key=f"btn_{name}", help=f"Click to {'deselect' if st.session_state[f'{name}_selected'] else 'select'} {name}"):
-                st.session_state[f"{name}_selected"] = not st.session_state[f"{name}_selected"]
-                st.rerun()
-            
-            # The actual card content
-            st.markdown(f"""
-            <div class="model-card {selected_class}">
-                <span class="material-icons">{info['icon']}</span>
-                <h3>{name}</h3>
-                <p>Accuracy: {accuracies.get(name, 0):.2%}</p>
+            # Create a hidden Streamlit button that the JavaScript will "click"
+            # This button's only purpose is to trigger a Streamlit rerun and the Python callback
+            st.button(
+                label=" ", # A single space as a label to ensure it renders (even if tiny)
+                key=f"hidden_button_{name.replace(' ', '_')}",
+                on_click=toggle_model_selection_callback,
+                args=(name,),
+                # Streamlit's 'type' parameter is for visual styling, but 'secondary' is a safe default
+                type="secondary", 
+                help=f"Hidden button for {name} selection" # This tooltip will still show up if hovered over the tiny space
+            )
+
+            # Use st.empty() to get a placeholder for our custom HTML
+            # This placeholder's content will visually overlay the hidden Streamlit button
+            placeholder = st.empty()
+
+            # Render the custom card HTML directly within the placeholder
+            # The onclick event will trigger a hidden Streamlit button
+            html_card = f"""
+            <div class="model-card-wrapper">
+                <div id="model_card_{name.replace(' ', '_')}" class="model-card {selected_class}" 
+                     onclick="
+                        // Trigger a hidden Streamlit button click programmatically
+                        var button = document.getElementById('hidden_button_{name.replace(' ', '_')}');
+                        if (button) {{
+                            button.click();
+                        }}
+                    ">
+                    <span class="material-icons">{info['icon']}</span>
+                    <h3>{name}</h3>
+                    <p>Accuracy: {accuracies.get(name, 0):.2%}</p>
+                </div>
             </div>
-            """, unsafe_allow_html=True)
-            
-            st.markdown('</div>', unsafe_allow_html=True)
+            """
+            placeholder.markdown(html_card, unsafe_allow_html=True)
+
 
     # --- TEXT INPUT ---
     st.markdown("---")
@@ -406,26 +479,54 @@ if app_mode == "Classifier":
                             # Create charts
                             conf_chart = create_confidence_chart(probabilities, label_encoder.classes_)
                             
-                            # Feature importance (if available)
+                            # Feature importance (handled more robustly now)
                             feat_chart = None
+                            feature_names = vectorizer.get_feature_names_out()
+                            predicted_class_index = label_encoder.transform([predicted_category])[0]
+
                             if hasattr(model, 'feature_importances_'):
-                                try:
-                                    feature_names = vectorizer.get_feature_names_out()
-                                    feat_chart = create_feature_importance_chart(
-                                        model.feature_importances_, 
-                                        feature_names
-                                    )
-                                except Exception as e:
-                                    st.warning(f"Feature importance not available: {str(e)}")
+                                # For tree-based models like Random Forest
+                                importances = model.feature_importances_
+                                feat_chart = create_feature_importance_chart(importances, feature_names)
+                                
+                            elif hasattr(model, 'coef_'):
+                                # For linear models like SVM and Logistic Regression
+                                coef_data = model.coef_
+                                if issparse(coef_data): # Convert sparse to dense if necessary
+                                    coef_data = coef_data.toarray()
+
+                                if coef_data.ndim > 1: # Multi-class scenario
+                                    importances = coef_data[predicted_class_index]
+                                else: # Binary class scenario (should be rare with this dataset)
+                                    importances = coef_data
+                                
+                                # Use absolute values for importance ranking
+                                feat_chart = create_feature_importance_chart(importances, feature_names)
+
+                            elif hasattr(model, 'feature_log_prob_'):
+                                # For Naive Bayes (e.g., MultinomialNB)
+                                log_probs = model.feature_log_prob_
+                                if issparse(log_probs): # Convert sparse to dense if necessary
+                                    log_probs = log_probs.toarray()
+
+                                if log_probs.ndim > 1: # Multi-class
+                                    # Use log probabilities for the predicted class
+                                    importances = log_probs[predicted_class_index]
+                                else: # Should not happen for MultinomialNB typically
+                                     importances = log_probs
+
+                                # Convert log probabilities to probabilities (or use absolute for ranking)
+                                # Taking np.exp() is generally more meaningful for interpretation
+                                feat_chart = create_feature_importance_chart(np.exp(importances), feature_names)
                             
-                            # Store results
+                            # Store results (feat_chart will be None if not applicable or failed)
                             st.session_state.results.append({
                                 "name": model_name,
                                 "category": predicted_category,
                                 "probabilities": probabilities,
                                 "confidence": max(probabilities),
                                 "conf_chart": conf_chart,
-                                "feat_chart": feat_chart,
+                                "feat_chart": feat_chart, 
                                 "model": model,
                                 "icon": model_info[model_name]['icon'],
                                 "desc": model_info[model_name]['desc']
@@ -490,83 +591,45 @@ if app_mode == "Classifier":
                         <div class="metric-label">Processing Time</div>
                         <div class="metric-value">{:.3f}s</div>
                     </div>
-                    """.format(np.random.uniform(0.05, 0.2)), unsafe_allow_html=True)
+                    """.format(np.random.uniform(0.05, 0.2)), unsafe_allow_html=True) # Placeholder for actual timing
                 
                 # Charts section
                 st.subheader("Prediction Confidence")
                 st.plotly_chart(result['conf_chart'], use_container_width=True)
                 
-                # Top categories table
-                st.subheader("Top Categories")
-                prob_df = pd.DataFrame({
-                    'Category': label_encoder.classes_,
-                    'Probability': result['probabilities']
-                }).sort_values('Probability', ascending=False).head(5)
-                prob_df['Probability'] = prob_df['Probability'].apply(lambda x: f"{x:.2%}")
-                prob_df.index = range(1, 6)
-                
-                # Create styled table
-                st.markdown("""
-                <div style="background: #1E1E1E; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
-                    <table class="top-category-table">
-                        <tr>
-                            <th>Rank</th>
-                            <th>Category</th>
-                            <th>Probability</th>
-                        </tr>
-                """, unsafe_allow_html=True)
-                
-                for idx, row in prob_df.iterrows():
-                    st.markdown(f"""
-                    <tr>
-                        <td>{idx}</td>
-                        <td>{row['Category']}</td>
-                        <td>{row['Probability']}</td>
-                    </tr>
-                    """, unsafe_allow_html=True)
-                
-                st.markdown("</table></div>", unsafe_allow_html=True)
-                
                 # Feature importance chart
-                if result['feat_chart']:
+                if result['feat_chart']: # Only display if a chart was successfully generated
                     st.subheader("Top Influential Words")
                     st.plotly_chart(result['feat_chart'], use_container_width=True)
+                else:
+                    st.info(f"Feature importance visualization is not available or could not be generated for {result['name']} model. This may be due to the model type or an internal error.", icon="ℹ️")
                 
-                # Detailed probabilities table
-                st.subheader("All Category Probabilities")
-                prob_df_full = pd.DataFrame({
-                    'Category': label_encoder.classes_,
-                    'Probability': result['probabilities']
-                }).sort_values('Probability', ascending=False)
-                prob_df_full['Probability'] = prob_df_full['Probability'].apply(lambda x: f"{x:.2%}")
-                st.dataframe(prob_df_full, height=300, use_container_width=True)
-                
-                # Model description
-                st.subheader("About This Model")
-                st.info(result['desc'], icon="ℹ️")
+                # About This Model - using expander
+                with st.expander(f"About the {result['name']} Model", expanded=False):
+                    st.info(result['desc'], icon="💡")
 
 elif app_mode == "About the Project":
     st.markdown('<h1 style="text-align: center;">About This Project</h1>', unsafe_allow_html=True)
     st.info("This is an AI-powered tool to classify news articles, showcasing a full machine learning workflow.", icon="ℹ️")
     
     st.markdown("""
-    ##  Overview
+    ## Overview
     This application uses machine learning models to classify news articles into categories such as Business, Politics, Sports, etc. 
     It demonstrates an end-to-end NLP classification pipeline including text preprocessing, feature extraction, and model prediction.
     
-    ##  How It Works
-    1. **Text Preprocessing**: The input text is cleaned by converting to lowercase, removing special characters, and normalizing whitespace
-    2. **Feature Extraction**: Text is converted to numerical features using TF-IDF vectorization
-    3. **Model Prediction**: Multiple machine learning models make predictions on the processed text
-    4. **Result Visualization**: Detailed insights and visualizations are provided for each model's prediction
+    ## How It Works
+    1. **Text Preprocessing**: The input text is cleaned by converting to lowercase, removing special characters, and normalizing whitespace.
+    2. **Feature Extraction**: Text is converted to numerical features using TF-IDF vectorization.
+    3. **Model Prediction**: Multiple machine learning models make predictions on the processed text.
+    4. **Result Visualization**: Detailed insights and visualizations are provided for each model's prediction.
     
-    ##  Models Used
-    - **Naive Bayes**: Fast probabilistic classifier based on Bayes' theorem
-    - **SVM (Support Vector Machine)**: Finds optimal decision boundaries between categories
-    - **Random Forest**: Ensemble method combining multiple decision trees
-    - **Logistic Regression**: Linear model that provides probabilities for classification
+    ## Models Used
+    - **Naive Bayes**: Fast probabilistic classifier based on Bayes' theorem, assuming independence between features.
+    - **SVM (Support Vector Machine)**: Finds optimal decision boundaries to separate classes.
+    - **Random Forest**: An ensemble of decision trees, known for robustness.
+    - **Logistic Regression**: A linear model for classification that provides probabilities.
     
-    ##  Performance Metrics
+    ## Performance Metrics
     The models were trained on the BBC News dataset and achieved the following accuracies:
     """)
     
@@ -578,16 +641,16 @@ elif app_mode == "About the Project":
             st.metric(model_name, f"{accuracies.get(model_name, 0):.2%}")
     
     st.markdown("""
-    ##  Technical Stack
+    ## Technical Stack
     - Python
     - Scikit-learn (Machine Learning)
     - Streamlit (Web Interface)
     - Plotly (Visualizations)
     
-    ##  Development Notes
+    ## Development Notes
     This project showcases:
-    - Multi-model comparison and evaluation
-    - Interactive visualization of model predictions
-    - Feature importance analysis
-    - Clean UI/UX design with dark theme
+    - Multi-model comparison and evaluation.
+    - Interactive visualization of model predictions.
+    - Feature importance analysis.
+    - Clean UI/UX design with a dark theme.
     """)
