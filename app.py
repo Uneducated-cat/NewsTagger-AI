@@ -8,8 +8,8 @@ import numpy as np
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="BBC News AI Classifier",
-    page_icon="🤖",
+    page_title="",
+    page_icon="📰🏷️",
     layout="centered",
     initial_sidebar_state="expanded"
 )
@@ -330,13 +330,13 @@ if 'results' not in st.session_state:
 
 # --- SIDEBAR NAVIGATION ---
 with st.sidebar:
-    st.title("📰 AI News Classifier")
+    st.title("📰 NewsTagger")
     st.markdown("---")
     app_mode = st.radio("Navigation", ("Classifier", "About the Project"), label_visibility="hidden")
 
 # --- MAIN APP UI ---
 if app_mode == "Classifier":
-    st.markdown('<h1 style="text-align: center;">AI News Article Classifier</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 style="text-align: center;">NewsTagger : News Article Classifier</h1>', unsafe_allow_html=True)
     st.markdown('<p style="text-align: center; color: #9e9e9e;">Select models, paste an article, and classify it in real-time.</p>', unsafe_allow_html=True)
     st.markdown("---")
 
@@ -370,14 +370,14 @@ if app_mode == "Classifier":
     st.markdown("---")
     st.subheader("2. Paste Article Text")
     user_input = st.text_area("Enter article text below:", height=250, label_visibility="collapsed", 
-                              placeholder="Paste BBC news article content here...")
+                              placeholder="Paste news article content here...")
     
     # --- ACTION BUTTONS ---
     st.markdown("---")
     selected_models = [name for name in model_info if st.session_state[f"{name}_selected"]]
     col1, col2 = st.columns(2)
     with col1:
-        predict_btn = st.button("🚀 Predict", use_container_width=True, key="predict_btn", 
+        predict_btn = st.button("Predict", use_container_width=True, key="predict_btn", 
                                help="Run classification with selected models", type="primary")
     with col2:
         clear_btn = st.button("Clear Results", use_container_width=True, key="clear_btn", 
@@ -385,9 +385,9 @@ if app_mode == "Classifier":
 
     if predict_btn:
         if not user_input.strip():
-            st.warning("Please enter some text.", icon="✍️")
+            st.warning("Please enter some text.", icon="🥀")
         elif not selected_models:
-            st.warning("Please select at least one model.", icon="🤖")
+            st.warning("Please select at least one model.", icon="🪫")
         else:
             with st.spinner('Analyzing text with AI models...'):
                 st.session_state.results = []
@@ -434,7 +434,7 @@ if app_mode == "Classifier":
                             st.error(f"Error with {model_name} model: {str(e)}", icon="⚠️")
                 
                 st.session_state.prediction_made = True
-                st.toast("Predictions are ready!", icon="✅")
+                st.toast("Predictions are ready!", icon="🏁")
 
     if clear_btn:
         st.session_state.prediction_made = False
@@ -550,23 +550,23 @@ elif app_mode == "About the Project":
     st.info("This is an AI-powered tool to classify news articles, showcasing a full machine learning workflow.", icon="ℹ️")
     
     st.markdown("""
-    ## 📌 Overview
+    ##  Overview
     This application uses machine learning models to classify news articles into categories such as Business, Politics, Sports, etc. 
     It demonstrates an end-to-end NLP classification pipeline including text preprocessing, feature extraction, and model prediction.
     
-    ## 🔧 How It Works
+    ##  How It Works
     1. **Text Preprocessing**: The input text is cleaned by converting to lowercase, removing special characters, and normalizing whitespace
     2. **Feature Extraction**: Text is converted to numerical features using TF-IDF vectorization
     3. **Model Prediction**: Multiple machine learning models make predictions on the processed text
     4. **Result Visualization**: Detailed insights and visualizations are provided for each model's prediction
     
-    ## 🤖 Models Used
+    ##  Models Used
     - **Naive Bayes**: Fast probabilistic classifier based on Bayes' theorem
     - **SVM (Support Vector Machine)**: Finds optimal decision boundaries between categories
     - **Random Forest**: Ensemble method combining multiple decision trees
     - **Logistic Regression**: Linear model that provides probabilities for classification
     
-    ## 📊 Performance Metrics
+    ##  Performance Metrics
     The models were trained on the BBC News dataset and achieved the following accuracies:
     """)
     
@@ -578,13 +578,13 @@ elif app_mode == "About the Project":
             st.metric(model_name, f"{accuracies.get(model_name, 0):.2%}")
     
     st.markdown("""
-    ## 🛠️ Technical Stack
+    ##  Technical Stack
     - Python
     - Scikit-learn (Machine Learning)
     - Streamlit (Web Interface)
     - Plotly (Visualizations)
     
-    ## 👨‍💻 Development Notes
+    ##  Development Notes
     This project showcases:
     - Multi-model comparison and evaluation
     - Interactive visualization of model predictions
