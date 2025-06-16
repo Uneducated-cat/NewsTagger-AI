@@ -9,8 +9,8 @@ from scipy.sparse import issparse # Import to check for sparse matrix
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="NewsTagger AI",
-    page_icon="📰🏷️",
+    page_title="NewsTagger",
+    page_icon="🏷️",
     layout="centered",
     initial_sidebar_state="expanded"
 )
@@ -63,7 +63,7 @@ st.markdown("""
         box-shadow: 0 0 5px rgba(100, 181, 246, 0.5);
     }
     
-    /* Buttons with Ripple Effect (General Streamlit Buttons) */
+    /* Global Button Styles (Predict/Clear) */
     .stButton > button {
         position: relative;
         overflow: hidden;
@@ -76,24 +76,25 @@ st.markdown("""
         font-weight: 700;
         text-transform: uppercase;
         box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        transition: box-shadow 0.3s ease, transform 0.1s ease;
+        transition: box-shadow 0.3s ease, transform 0.1s ease, background-color 0.3s ease;
     }
     .stButton > button:hover {
         box-shadow: 0 6px 12px rgba(0,0,0,0.4);
+        background-color: #42A5F5; /* Slightly darker blue on hover */
     }
     .stButton > button:active {
         transform: translateY(1px);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        box_shadow: 0 2px 4px rgba(0,0,0,0.3);
     }
     
     /* Action Buttons (General Styling for st.button containers like Predict/Clear) */
     div.stButton {
-        width: 100%; /* Ensure general buttons fill container */
-        margin-top: 10px; /* Add some spacing */
+        width: 100%;
+        margin-top: 10px;
         transition: all 0.3s ease;
     }
-    div.stButton > button { /* Specific styling for the button element inside stButton div */
-        width: 100%; /* Make the button fill its container */
+    div.stButton > button {
+        width: 100%;
     }
     div.stButton:hover {
         transform: translateY(-2px);
@@ -101,60 +102,75 @@ st.markdown("""
     }
 
 
-    /* CUSTOM MODEL SELECTION CARDS - Styled directly, with JS for clicks */
+    /* CUSTOM MODEL SELECTION CARDS */
 
-    .model-card-wrapper {
-        height: 180px; /* Fixed height for all cards */
-        /* margin-bottom handled by the parent stButton div */
-        position: relative; /* Needed for z-index context with .model-card */
-        z-index: 1; /* Ensure card is above hidden button */
-        cursor: pointer; /* Indicate it's clickable */
+    /* The outer wrapper for positioning */
+    .model-card-container {
+        position: relative; /* Crucial for positioning the button inside */
+        height: 180px; /* Fixed height for consistent layout */
+        margin-bottom: 15px; /* Spacing between cards */
+        cursor: pointer; /* Indicate clickability for the whole card */
+        border-radius: 8px;
+        transition: all 0.2s ease-in-out;
     }
-
-    .model-card {
+    
+    /* Styles for the custom card's visual appearance */
+    .model-card-visual {
         background-color: #212121;
         padding: 1rem;
         border-radius: 8px;
         border: 2px solid #424242;
         text-align: center;
-        transition: all 0.2s ease-in-out;
         box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        height: 100%; /* Make sure the card itself fills the wrapper */
+        height: 100%;
         display: flex;
         flex-direction: column;
-        justify-content: center; /* Center content vertically */
-        align-items: center; /* Center content horizontally */
-        position: relative; /* For checkmark icon */
-        user-select: none; /* Prevent text selection on click */
+        justify-content: center;
+        align-items: center;
+        position: absolute; /* Position over the button */
+        top: 0;
+        left: 0;
+        width: 100%;
+        z-index: 2; /* Make sure it's above the button */
+        pointer-events: none; /* Allow clicks to pass through to the button */
+        transition: inherit; /* Inherit transitions from container */
     }
-    .model-card:hover {
-        border-color: #64B5F6;
-        transform: translateY(-3px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.4);
-    }
-    .model-card.selected {
+
+    /* Selected state for the custom card's visual */
+    .model-card-container.selected .model-card-visual {
         border-color: #64B5F6;
         background: rgba(100, 181, 246, 0.1);
         box-shadow: 0 0 10px rgba(100, 181, 246, 0.5);
     }
-    .model-card .material-icons {
+    
+    /* Hover effect for the entire card container */
+    .model-card-container:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+    }
+    .model-card-container:hover .model-card-visual {
+         border-color: #64B5F6; /* Also update the border on hover */
+    }
+
+    /* Style the content inside the custom card visual */
+    .model-card-visual .material-icons {
         font-size: 2.5rem;
         margin-bottom: 0.5rem;
         color: #BBDEFB; /* Light blue icon color */
     }
-    .model-card h3 {
+    .model-card-visual h3 {
         font-size: 1rem;
         font-weight: 500;
         margin-bottom: 0.25rem;
         color: #ffffff;
     }
-    .model-card p {
+    .model-card-visual p {
         font-size: 0.8rem;
         color: #9e9e9e;
     }
 
     /* Checkmark icon for selected cards */
-    .model-card.selected::after {
+    .model-card-container.selected .model-card-visual::after {
         content: 'check_circle'; /* Material icon name */
         font-family: 'Material Icons';
         font-size: 2rem;
@@ -164,35 +180,35 @@ st.markdown("""
         right: 10px;
         line-height: 1;
     }
-    
-    /* CSS to ONLY hide the SPECIFIC hidden buttons for model selection */
-    /* This targets the Streamlit div.stButton that contains our hidden button */
-    div.stButton:has(button[id^="hidden_button_"]) {
-        position: relative !important; /* Make parent relative for absolute button positioning */
-        height: 180px !important; /* Give it the same height as the card for proper spacing */
-        margin-bottom: 15px !important; /* Restore normal margin for column flow */
-        overflow: hidden !important; /* Hide anything outside this div */
-        /* No z-index here, let the actual button or the overlaying card handle it */
-    }
 
-    /* Target the button itself by its Streamlit-generated ID (from 'key') */
-    button[id^="hidden_button_"] {
-        position: absolute !important; /* Position it absolutely within its parent div.stButton */
+    /* Hide default Streamlit button styling */
+    .model-selection-button > button {
+        position: absolute !important;
         top: 0 !important;
         left: 0 !important;
-        width: 100% !important; /* Make it fill its parent div.stButton */
-        height: 100% !important; /* Make it fill its parent div.stButton */
-        overflow: hidden !important;
-        opacity: 0 !important; /* Make it completely invisible */
-        margin: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        background-color: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        color: transparent !important; /* Hide text */
+        z-index: 1 !important; /* Place it below the visual but above parent */
+        cursor: pointer !important;
         padding: 0 !important;
-        border: 0 !important;
-        z-index: 0; /* Place it *below* the custom card */
-        background-color: transparent !important; /* Ensure no background */
-        color: transparent !important; /* Hide any text */
-        pointer-events: all !important; /* CRUCIAL: Allow programmatic clicks */
+        margin: 0 !important;
+        /* Prevent Streamlit's default hover effects on the hidden button */
+        transition: none !important; 
     }
-
+    /* Hide the focus outline from the actual button but let it be on the custom card */
+    .model-selection-button > button:focus {
+        outline: none !important;
+        box-shadow: none !important;
+    }
+    /* Hide the div.stButton's default margin for model selection buttons */
+    .model-selection-button {
+        margin: 0 !important;
+        height: 100% !important; /* Important for the parent div.stButton to fill model-card-container */
+    }
 
     /* Prediction Result Cards */
     .prediction-card {
@@ -361,26 +377,65 @@ def create_feature_importance_chart(importances, feature_names, top_n=15):
 # --- LOAD RESOURCES & INITIALIZE STATE ---
 vectorizer, label_encoder, accuracies = load_resources()
 model_info = {
-    'Naive Bayes': {'icon': 'calculate', 'desc': "A probabilistic classifier based on Bayes' theorem, assuming independence between features. It's often fast and performs well with text data."},
-    'SVM': {'icon': 'hub', 'desc': "Support Vector Machines find the optimal hyperplane that best separates different classes in the feature space. They are effective in high-dimensional spaces."},
-    'Random Forest': {'icon': 'forest', 'desc': "An ensemble learning method that constructs a multitude of decision trees during training and outputs the class that is the mode of the classes (classification) or mean prediction (regression) of the individual trees. It's robust and handles complex relationships."},
-    'Logistic Regression': {'icon': 'functions', 'desc': "Despite its name, Logistic Regression is a linear model for classification rather than regression. It models the probability of a binary outcome and is extended for multi-class classification. It's simple, interpretable, and performs well with high-dimensional data."}
+    'Naive Bayes': {
+        'icon': 'calculate',
+        'desc': """
+            **Origin & Theory**: Naive Bayes classifiers are a family of simple probabilistic classifiers based on **Bayes' Theorem** with the "naive" assumption of conditional independence between features. Specifically, for a given class, the presence or absence of a particular feature (like a word in an article) is assumed to be unrelated to the presence or absence of any other feature.
+            
+            **How it Works**: It calculates the probability of a document belonging to a certain class (category) given the words in it. The formula is:
+            $$ P(Class|Document) \\propto P(Document|Class) \\times P(Class) $$
+            Where $P(Document|Class)$ is simplified by the independence assumption to be the product of probabilities of each word appearing in that class:
+            $$ P(Document|Class) = \\prod_{i=1}^{n} P(Word_i|Class) $$
+            It's particularly effective for text classification due to its simplicity, speed, and good performance even with small datasets. It often uses **Bag of Words** model for document representation.
+        """
+    },
+    'SVM': {
+        'icon': 'hub',
+        'desc': """
+            **Origin & Theory**: Support Vector Machines (SVMs) are supervised learning models with associated learning algorithms that analyze data for classification and regression analysis. Proposed by Vladimir Vapnik, their core idea is to find an **optimal hyperplane** that best separates the data points of different classes in a high-dimensional space.
+            
+            **How it Works**: The goal is to maximize the **margin** between the hyperplane and the closest data points from each class, known as **support vectors**. A larger margin generally leads to lower generalization error. For non-linearly separable data, SVMs use the **kernel trick**, which implicitly maps the inputs into high-dimensional feature spaces where a linear separation is possible, without explicitly computing the coordinates in that space. Common kernels include Linear, Polynomial, and Radial Basis Function (RBF).
+            $$ \\min_{w, b, \\xi} \\frac{1}{2} ||w||^2 + C \\sum_{i=1}^{n} \\xi_i \\text{ subject to } y_i(w \\cdot x_i - b) \\ge 1 - \\xi_i \\text{ and } \\xi_i \\ge 0 $$
+            Here, $w$ is the normal vector to the hyperplane, $b$ is the offset, $C$ is a regularization parameter, and $\\xi_i$ are slack variables for misclassification.
+        """
+    },
+    'Random Forest': {
+        'icon': 'forest',
+        'desc': """
+            **Origin & Theory**: Random Forest, introduced by Leo Breiman, is an **ensemble learning method** for classification and regression. It operates by constructing a multitude of decision trees at training time and outputting the class that is the mode of the classes (classification) or mean prediction (regression) of the individual trees. It's built on the principle of **bagging (bootstrap aggregating)**.
+            
+            **How it Works**:
+            1.  **Bootstrapping**: Each tree in the forest is trained on a random subset of the training data, sampled with replacement.
+            2.  **Feature Randomness**: When splitting a node during tree construction, only a random subset of features is considered, preventing individual features from dominating the decision-making.
+            3.  **Voting/Averaging**: For classification, the final prediction is determined by majority voting among the trees. For regression, it's the average of their predictions.
+            The combination of these randomizations (data and features) reduces overfitting and improves the model's robustness and accuracy.
+        """
+    },
+    'Logistic Regression': {
+        'icon': 'functions',
+        'desc': """
+            **Origin & Theory**: Despite its name, Logistic Regression is a statistical model used for **binary classification**. It's a linear model that estimates the probability of an instance belonging to a particular class. It extends to multi-class classification using strategies like One-vs-Rest (OvR) or Multinomial Logistic Regression.
+            
+            **How it Works**: It applies a **sigmoid (logistic) function** to the output of a linear equation, squashing the output into a probability between 0 and 1.
+            $$ P(Y=1|X) = \\frac{1}{1 + e^{-( \\beta_0 + \\beta_1 X_1 + ... + \\beta_n X_n )}} $$
+            The parameters ($\\beta$) are learned by maximizing the likelihood function, typically using gradient descent. For text classification, it handles high-dimensional sparse data well and offers good interpretability through the learned coefficients.
+        """
+    }
 }
 
 # Initialize session state for each model's selection status
 for model_name in model_info:
     if f"{model_name}_selected" not in st.session_state:
-        st.session_state[f"{model_name}_selected"] = True
+        st.session_state[f"{model_name}_selected"] = True # All selected by default
 
 if 'prediction_made' not in st.session_state:
     st.session_state.prediction_made = False
 if 'results' not in st.session_state:
     st.session_state.results = []
 
-# --- Callback function to toggle selection state (triggered by JavaScript) ---
+# --- Callback function to toggle selection state (triggered by Streamlit button click) ---
 def toggle_model_selection_callback(model_name):
     st.session_state[f"{model_name}_selected"] = not st.session_state[f"{model_name}_selected"]
-    # Streamlit will automatically rerun the script when session_state changes via a button click
 
 # --- SIDEBAR NAVIGATION ---
 with st.sidebar:
@@ -394,7 +449,7 @@ if app_mode == "Classifier":
     st.markdown('<p style="text-align: center; color: #9e9e9e;">Select models, paste an article, and classify it in real-time.</p>', unsafe_allow_html=True)
     st.markdown("---")
 
-    # --- CUSTOM MODEL SELECTION ---
+    # --- CUSTOM MODEL SELECTION WITH VISIBLE ST.BUTTON ---
     st.subheader("1. Select Your Models")
     cols = st.columns(len(model_info))
     for i, (name, info) in enumerate(model_info.items()):
@@ -402,41 +457,53 @@ if app_mode == "Classifier":
             is_selected = st.session_state[f"{name}_selected"]
             selected_class = "selected" if is_selected else ""
             
-            # Create a hidden Streamlit button that the JavaScript will "click"
-            # This button's only purpose is to trigger a Streamlit rerun and the Python callback
-            st.button(
-                label=" ", # A single space as a label to ensure it renders (even if tiny)
-                key=f"hidden_button_{name.replace(' ', '_')}",
-                on_click=toggle_model_selection_callback,
-                args=(name,),
-                # Streamlit's 'type' parameter is for visual styling, but 'secondary' is a safe default
-                type="secondary", 
-                help=f"Hidden button for {name} selection" # This tooltip will still show up if hovered over the tiny space
-            )
-
-            # Use st.empty() to get a placeholder for our custom HTML
-            # This placeholder's content will visually overlay the hidden Streamlit button
-            placeholder = st.empty()
-
-            # Render the custom card HTML directly within the placeholder
-            # The onclick event will trigger a hidden Streamlit button
-            html_card = f"""
-            <div class="model-card-wrapper">
-                <div id="model_card_{name.replace(' ', '_')}" class="model-card {selected_class}" 
-                     onclick="
-                        // Trigger a hidden Streamlit button click programmatically
-                        var button = document.getElementById('hidden_button_{name.replace(' ', '_')}');
-                        if (button) {{
-                            button.click();
-                        }}
-                    ">
+            # Use a div to act as the clickable card container
+            # This container will hold both the hidden Streamlit button and the visual card
+            # The onclick event on this container will trigger the hidden button
+            st.markdown(f"""
+            <div id="model_card_container_{name.replace(' ', '_')}" 
+                 class="model-card-container {selected_class}"
+                 onclick="
+                    var button = document.getElementById('button_to_click_{name.replace(' ', '_')}');
+                    if (button) {{
+                        button.click();
+                    }}
+                 ">
+                <div class="model-card-visual">
                     <span class="material-icons">{info['icon']}</span>
                     <h3>{name}</h3>
                     <p>Accuracy: {accuracies.get(name, 0):.2%}</p>
                 </div>
             </div>
-            """
-            placeholder.markdown(html_card, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
+
+            # The actual Streamlit button, which will be styled to be invisible and fill the card.
+            # Its sole purpose is to capture the click and trigger the Streamlit rerun.
+            st.button(
+                label="Click to Select", # A simple label
+                key=f"button_to_click_{name.replace(' ', '_')}", # Unique key
+                on_click=toggle_model_selection_callback,
+                args=(name,),
+                type="secondary", # Minimal default styling
+                use_container_width=True,
+                help=f"Toggle selection for {name} model",
+            )
+            
+            # Inject JS to move the Streamlit button into the custom card container
+            # and apply the model-selection-button class to its parent div.stButton
+            st.markdown(f"""
+                <script>
+                    var cardContainer = document.getElementById('model_card_container_{name.replace(' ', '_')}');
+                    var stButtonDiv = document.querySelector('[key="{f"button_to_click_{name.replace(' ', '_')}"}"]').closest('.stButton');
+                    
+                    if (cardContainer && stButtonDiv) {{
+                        // Move the entire stButton div into the custom card container
+                        cardContainer.appendChild(stButtonDiv);
+                        // Add a class to the stButton div for specific CSS targeting
+                        stButtonDiv.classList.add('model-selection-button');
+                    }}
+                </script>
+            """, unsafe_allow_html=True)
 
 
     # --- TEXT INPUT ---
@@ -624,22 +691,15 @@ elif app_mode == "About the Project":
     4. **Result Visualization**: Detailed insights and visualizations are provided for each model's prediction.
     
     ## Models Used
-    - **Naive Bayes**: Fast probabilistic classifier based on Bayes' theorem, assuming independence between features.
-    - **SVM (Support Vector Machine)**: Finds optimal decision boundaries to separate classes.
-    - **Random Forest**: An ensemble of decision trees, known for robustness.
-    - **Logistic Regression**: A linear model for classification that provides probabilities.
-    
-    ## Performance Metrics
-    The models were trained on the BBC News dataset and achieved the following accuracies:
     """)
     
-    # Display model accuracies
-    acc_cols = st.columns(4)
-    models = list(model_info.keys())
-    for i, model_name in enumerate(models):
-        with acc_cols[i]:
-            st.metric(model_name, f"{accuracies.get(model_name, 0):.2%}")
-    
+    # Display model accuracies and descriptions in an About section
+    for model_name, info in model_info.items():
+        st.markdown(f"### {model_name}")
+        st.metric("Accuracy", f"{accuracies.get(model_name, 0):.2%}")
+        st.markdown(info['desc'], unsafe_allow_html=True)
+        st.markdown("---") # Separator
+            
     st.markdown("""
     ## Technical Stack
     - Python
@@ -651,6 +711,5 @@ elif app_mode == "About the Project":
     This project showcases:
     - Multi-model comparison and evaluation.
     - Interactive visualization of model predictions.
-    - Feature importance analysis.
     - Clean UI/UX design with a dark theme.
     """)
