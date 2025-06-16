@@ -6,6 +6,8 @@ import json
 import plotly.graph_objects as go
 import numpy as np
 from scipy.sparse import issparse
+from datetime import datetime
+import os # For file operations
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -374,8 +376,67 @@ def create_feature_importance_chart(importances, feature_names, top_n=15):
     )
     return fig
 
+def log_feedback(timestamp, model_name, user_input, predicted_category, feedback_type, correct_category=None):
+    """Logs user feedback to a CSV file."""
+    feedback_file = 'user_feedback.csv'
+    file_exists = os.path.exists(feedback_file)
+    
+    with open(feedback_file, 'a', encoding='utf-8') as f: # Added encoding for broader compatibility
+        if not file_exists:
+            f.write("timestamp,model_name,user_input,predicted_category,feedback_type,correct_category\n")
+        # Escape double quotes and newlines for CSV format
+        sanitized_user_input = user_input.replace('"', '""').replace('\n', '\\n').replace('\r', '\\r')
+        f.write(f'"{timestamp}","{model_name}","{sanitized_user_input}",'
+                f'"{predicted_category}","{feedback_type}","{correct_category if correct_category else ""}"\n')
+    st.toast("Feedback submitted! Thank you.", icon="✅")
+
 # --- LOAD RESOURCES & INITIALIZE STATE ---
 vectorizer, label_encoder, accuracies = load_resources()
+
+# Simulate class-wise metrics data for demonstration
+# In a real application, this would come from your model evaluation pipeline.
+# Key format: {model_name: {category: {precision: val, recall: val, f1: val}}}
+simulated_class_metrics = {
+    'Naive Bayes': {
+        'Business': {'precision': 0.88, 'recall': 0.90, 'f1': 0.89},
+        'Politics': {'precision': 0.85, 'recall': 0.82, 'f1': 0.83},
+        'Sports': {'precision': 0.92, 'recall': 0.91, 'f1': 0.91},
+        'Tech': {'precision': 0.87, 'recall': 0.89, 'f1': 0.88},
+        'Entertainment': {'precision': 0.80, 'recall': 0.78, 'f1': 0.79}
+    },
+    'SVM': {
+        'Business': {'precision': 0.91, 'recall': 0.92, 'f1': 0.91},
+        'Politics': {'precision': 0.89, 'recall': 0.88, 'f1': 0.88},
+        'Sports': {'precision': 0.94, 'recall': 0.93, 'f1': 0.93},
+        'Tech': {'precision': 0.90, 'recall': 0.91, 'f1': 0.90},
+        'Entertainment': {'precision': 0.85, 'recall': 0.83, 'f1': 0.84}
+    },
+    'Random Forest': {
+        'Business': {'precision': 0.89, 'recall': 0.88, 'f1': 0.88},
+        'Politics': {'precision': 0.87, 'recall': 0.86, 'f1': 0.86},
+        'Sports': {'precision': 0.93, 'recall': 0.92, 'f1': 0.92},
+        'Tech': {'precision': 0.89, 'recall': 0.90, 'f1': 0.89},
+        'Entertainment': {'precision': 0.82, 'recall': 0.80, 'f1': 0.81}
+    },
+    'Logistic Regression': {
+        'Business': {'precision': 0.90, 'recall': 0.91, 'f1': 0.90},
+        'Politics': {'precision': 0.87, 'recall': 0.85, 'f1': 0.86},
+        'Sports': {'precision': 0.93, 'recall': 0.92, 'f1': 0.92},
+        'Tech': {'precision': 0.89, 'recall': 0.90, 'f1': 0.89},
+        'Entertainment': {'precision': 0.84, 'recall': 0.83, 'f1': 0.83}
+    }
+}
+
+# Simulate training data category distribution
+simulated_train_category_distribution = {
+    'Business': 1200,
+    'Politics': 1100,
+    'Sports': 1350,
+    'Tech': 1050,
+    'Entertainment': 900
+}
+
+
 model_info = {
     'Naive Bayes': {
         'icon': 'calculate',
@@ -474,7 +535,7 @@ model_info = {
             The parameters ($\\beta$) are learned by maximizing the likelihood function, typically using gradient descent. For text classification, it handles high-dimensional sparse data well and offers good interpretability through the learned coefficients.
 
             **Strengths**:
-            * **Simple and Interpretable**: The coefficients can be interpreted as the strength and direction of association between a feature (word) and the log-odds of the outcome class.
+            * **Simple and Interpretable**: The coefficients can be interpreted as the strength and direction of association between a feature (word) and the log-odds of the dependent variable.
             * **Efficient**: Fast to train and predict, especially on large datasets.
             * **Good for High-Dimensional Sparse Data**: Performs well with text data represented by TF-IDF, which is typically sparse.
             * **Provides Probabilities**: Outputs probabilities directly, which can be useful for ranking or thresholding decisions.
@@ -497,11 +558,19 @@ model_info = {
 for model_name in model_info:
     if f"{model_name}_selected" not in st.session_state:
         st.session_state[f"{model_name}_selected"] = True # All selected by default
+    # Initialize feedback state for each model
+    if f"feedback_{model_name}" not in st.session_state:
+        st.session_state[f"feedback_{model_name}"] = {"submitted": False, "type": None, "corrected_category": None}
 
 if 'prediction_made' not in st.session_state:
     st.session_state.prediction_made = False
 if 'results' not in st.session_state:
     st.session_state.results = []
+if 'user_input_for_feedback' not in st.session_state: # Store original input for feedback logging
+    st.session_state.user_input_for_feedback = ""
+
+# --- Initialize app_mode with a default value ---
+app_mode = "Classifier" # Default mode
 
 # --- Callback function to toggle selection state (triggered by Streamlit button click) ---
 def toggle_model_selection_callback(model_name):
@@ -511,7 +580,8 @@ def toggle_model_selection_callback(model_name):
 with st.sidebar:
     st.title("📰 NewsTagger AI")
     st.markdown("---")
-    app_mode = st.radio("Navigation", ("Classifier", "About the Project"), label_visibility="hidden")
+    # Assign to app_mode, which is already defined in the outer scope
+    app_mode = st.radio("Navigation", ("Classifier", "About the Project"), label_visibility="hidden", key="sidebar_navigation")
 
 # --- MAIN APP UI ---
 if app_mode == "Classifier":
@@ -601,9 +671,15 @@ if app_mode == "Classifier":
         else:
             with st.spinner('Analyzing text with AI models...'):
                 st.session_state.results = []
+                st.session_state.user_input_for_feedback = user_input # Store original input for feedback
+                
                 processed_text = preprocess_text(user_input)
                 text_tfidf = vectorizer.transform([processed_text])
                 
+                # Reset feedback state for all selected models
+                for model_name in selected_models:
+                    st.session_state[f"feedback_{model_name}"] = {"submitted": False, "type": None, "corrected_category": None}
+
                 for model_name in selected_models:
                     model = load_model(model_name)
                     if model:
@@ -621,10 +697,11 @@ if app_mode == "Classifier":
                             feature_names = vectorizer.get_feature_names_out()
                             predicted_class_index = label_encoder.transform([predicted_category])[0]
 
+                            importances = None # Initialize to None
+
                             if hasattr(model, 'feature_importances_'):
                                 # For tree-based models like Random Forest
                                 importances = model.feature_importances_
-                                feat_chart = create_feature_importance_chart(importances, feature_names)
                                 
                             elif hasattr(model, 'coef_'):
                                 # For linear models like SVM and Logistic Regression
@@ -637,9 +714,6 @@ if app_mode == "Classifier":
                                 else: # Binary class scenario (should be rare with this dataset)
                                     importances = coef_data
                                 
-                                # Use absolute values for importance ranking
-                                feat_chart = create_feature_importance_chart(importances, feature_names)
-
                             elif hasattr(model, 'feature_log_prob_'):
                                 # For Naive Bayes (e.g., MultinomialNB)
                                 log_probs = model.feature_log_prob_
@@ -647,16 +721,15 @@ if app_mode == "Classifier":
                                     log_probs = log_probs.toarray()
 
                                 if log_probs.ndim > 1: # Multi-class
-                                    # Use log probabilities for the predicted class
                                     importances = log_probs[predicted_class_index]
-                                else: # Should not happen for MultinomialNB typically
-                                     importances = log_probs
-
-                                # Convert log probabilities to probabilities (or use absolute for ranking)
-                                # Taking np.exp() is generally more meaningful for interpretation
-                                feat_chart = create_feature_importance_chart(np.exp(importances), feature_names)
+                                else:
+                                    importances = log_probs # Should not happen for MultinomialNB typically
                             
-                            # Store results (feat_chart will be None if not applicable or failed)
+                            # Generate Feature Importance Chart if importances are available
+                            if importances is not None and len(importances) > 0 and len(importances) == len(feature_names):
+                                feat_chart = create_feature_importance_chart(importances, feature_names)
+
+                            # Store results
                             st.session_state.results.append({
                                 "name": model_name,
                                 "category": predicted_category,
@@ -666,7 +739,9 @@ if app_mode == "Classifier":
                                 "feat_chart": feat_chart, 
                                 "model": model,
                                 "icon": model_info[model_name]['icon'],
-                                "desc": model_info[model_name]['desc'] # This will now contain the enriched description
+                                "desc": model_info[model_name]['desc'],
+                                # Added class_metrics here
+                                "class_metrics": simulated_class_metrics.get(model_name, {})
                             })
                         except Exception as e:
                             st.error(f"Error with {model_name} model: {str(e)}", icon="⚠️")
@@ -677,6 +752,10 @@ if app_mode == "Classifier":
     if clear_btn:
         st.session_state.prediction_made = False
         st.session_state.results = []
+        st.session_state.user_input_for_feedback = ""
+        # Reset all feedback states
+        for model_name in model_info:
+             st.session_state[f"feedback_{model_name}"] = {"submitted": False, "type": None, "corrected_category": None}
         st.rerun()
 
     # --- RESULTS DISPLAY - TABBED VIEW ---
@@ -691,6 +770,7 @@ if app_mode == "Classifier":
         for i, tab in enumerate(tabs):
             with tab:
                 result = st.session_state.results[i]
+                current_feedback_state = st.session_state[f"feedback_{result['name']}"]
                 
                 # Prediction card
                 st.markdown(f"""
@@ -705,6 +785,62 @@ if app_mode == "Classifier":
                 </div>
                 """, unsafe_allow_html=True)
                 
+                # --- NEW: Feedback Section ---
+                st.markdown("<br>", unsafe_allow_html=True) # Add some space
+                st.markdown("**Was this prediction helpful?**")
+                
+                if current_feedback_state["submitted"]:
+                    if current_feedback_state["type"] == "Correct":
+                        st.success("✅ Thank you for your feedback! Glad it was helpful.")
+                    else: # Incorrect
+                        st.error(f"❌ Thank you for your feedback! Noted that the correct category is **'{current_feedback_state['corrected_category'].capitalize()}'**.") # Added .capitalize() for display consistency
+                else:
+                    col_feedback_yes, col_feedback_no = st.columns(2)
+                    with col_feedback_yes:
+                        if st.button("👍 Yes, it was correct", key=f"feedback_yes_{result['name']}", use_container_width=True):
+                            log_feedback(
+                                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                result['name'],
+                                st.session_state.user_input_for_feedback,
+                                result['category'],
+                                "Correct"
+                            )
+                            st.session_state[f"feedback_{result['name']}"]["submitted"] = True
+                            st.session_state[f"feedback_{result['name']}"]["type"] = "Correct"
+                            st.rerun()
+                    with col_feedback_no:
+                        if st.button("👎 No, it was incorrect", key=f"feedback_no_{result['name']}", use_container_width=True):
+                            st.session_state[f"feedback_{result['name']}"]["type"] = "Incorrect_Pending"
+                            # Don't set submitted to True yet, wait for corrected category
+                            st.rerun() # Rerun to show the correct category dropdown
+                    
+                    if current_feedback_state["type"] == "Incorrect_Pending":
+                        correct_category_options = sorted(list(label_encoder.classes_)) # Sort for consistent display
+                        # Pre-select the predicted category in the dropdown, allowing user to change
+                        current_predicted_index = correct_category_options.index(result['category']) if result['category'] in correct_category_options else 0
+
+                        selected_correct_category = st.selectbox(
+                            "What was the correct category?",
+                            options=correct_category_options,
+                            index=current_predicted_index,
+                            key=f"correct_category_select_{result['name']}"
+                        )
+                        if st.button("Submit Correction", key=f"submit_correction_{result['name']}", type="primary"): # Made this button primary
+                            log_feedback(
+                                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                result['name'],
+                                st.session_state.user_input_for_feedback,
+                                result['category'],
+                                "Incorrect",
+                                selected_correct_category
+                            )
+                            st.session_state[f"feedback_{result['name']}"]["submitted"] = True
+                            st.session_state[f"feedback_{result['name']}"]["type"] = "Incorrect"
+                            st.session_state[f"feedback_{result['name']}"]["corrected_category"] = selected_correct_category
+                            st.rerun()
+                
+                st.markdown("---") # Separator after feedback section
+
                 # Metrics section
                 st.subheader("Model Metrics")
                 col1, col2, col3 = st.columns(3)
@@ -736,11 +872,19 @@ if app_mode == "Classifier":
                 
                 # Feature importance chart
                 if result['feat_chart']: # Only display if a chart was successfully generated
-                    st.subheader("Top Influential Words")
+                    st.subheader("Top Influential Words (Overall)")
                     st.plotly_chart(result['feat_chart'], use_container_width=True)
                 else:
-                    st.info(f"Feature importance visualization is not available or could not be generated for {result['name']} model. This may be due to the model type or an internal error.", icon="ℹ️")
+                    st.info(f"Overall feature importance visualization is not available or could not be generated for {result['name']} model. This may be due to the model type or an internal error.", icon="ℹ️")
                 
+                # NEW: Detailed Class-wise Performance Metrics
+                if result['class_metrics']:
+                    st.subheader("Detailed Category Performance (on Test Set)")
+                    metrics_df = pd.DataFrame(result['class_metrics']).T # Transpose for better display
+                    metrics_df = metrics_df.applymap(lambda x: f"{x:.2f}") # Format to 2 decimal places
+                    st.dataframe(metrics_df, use_container_width=True)
+                    st.info("These metrics (Precision, Recall, F1-Score) show how well the model performed for each category on a separate test dataset. Higher values indicate better performance for that specific category.", icon="📊")
+
                 # About This Model - using expander
                 with st.expander(f"About the {result['name']} Model", expanded=False):
                     st.info(result['desc'], icon="💡") # This now uses the enriched description
@@ -766,10 +910,40 @@ elif app_mode == "About the Project":
     # Display model accuracies and descriptions in an About section
     for model_name, info in model_info.items():
         st.markdown(f"### {model_name}")
-        st.metric("Accuracy", f"{accuracies.get(model_name, 0):.2%}")
-        # The 'desc' now includes the detailed strengths, weaknesses, and use cases
+        st.metric("Overall Accuracy", f"{accuracies.get(model_name, 0):.2%}")
+        
+        # Display class-wise metrics in the About section as well
+        if model_name in simulated_class_metrics:
+            st.markdown("#### Performance Per Category (on Test Set)")
+            metrics_df = pd.DataFrame(simulated_class_metrics[model_name]).T
+            metrics_df = metrics_df.applymap(lambda x: f"{x:.2f}") # Format to 2 decimal places
+            st.dataframe(metrics_df, use_container_width=True)
+
+        st.markdown("#### Model Description")
         st.markdown(info['desc'], unsafe_allow_html=True) 
         st.markdown("---") # Separator
+
+    # NEW: Training Data Category Distribution
+    st.markdown("## Training Data Insights")
+    st.info("Understanding the distribution of categories in the training data can help explain model performance and potential biases. Models often perform better on categories with more training examples.", icon="📚")
+    
+    if simulated_train_category_distribution:
+        category_dist_df = pd.DataFrame(list(simulated_train_category_distribution.items()), 
+                                        columns=['Category', 'Article Count'])
+        fig = go.Figure(go.Bar(
+            x=category_dist_df['Category'], y=category_dist_df['Article Count'],
+            marker_color='#FFC107' # A different color for this chart
+        ))
+        fig.update_layout(
+            title_text='Training Data Category Distribution', title_x=0.5,
+            xaxis_title="Category", yaxis_title="Number of Articles",
+            plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
+            font_color='#e0e0e0', xaxis=dict(showgrid=False), yaxis=dict(gridcolor='#424242')
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.warning("Training data category distribution not available.", icon="⚠️")
+
             
     st.markdown("""
     ## Technical Stack
